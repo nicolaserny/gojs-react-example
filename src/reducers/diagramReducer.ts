@@ -1,5 +1,6 @@
 import { reducerWithInitialState } from 'typescript-fsa-reducers';
 import { Reducer } from 'redux';
+import * as go from 'gojs';
 import {
     init,
     updateNodeColor,
@@ -11,22 +12,26 @@ import {
     UpdateNodeText,
     UpdateNodeTextEvent
 } from '../actions/diagram';
-import { BaseNodeModel, DiagramModel, LinkModel } from 'react-gojs';
 
 export interface DiagramState {
-    model: DiagramModel<NodeModel, LinkModel>;
+    nodeDataArray: Array<NodeModel>;
+    linkDataArray: Array<go.ObjectData>;
     selectedNodeKeys: string[];
 }
 
-export interface NodeModel extends BaseNodeModel {
+export interface NodeModel extends go.ObjectData {
     label: string;
     color: string;
 }
 
-const initHandler = (state: DiagramState, payload: DiagramModel<NodeModel, LinkModel>): DiagramState => {
+const initHandler = (
+    state: DiagramState,
+    payload: { nodeDataArray: Array<NodeModel>; linkDataArray: Array<go.ObjectData> }
+): DiagramState => {
     return {
         ...state,
-        model: payload
+        nodeDataArray: payload.nodeDataArray,
+        linkDataArray: payload.linkDataArray
     };
 };
 
@@ -37,7 +42,7 @@ const getRandomColor = () => {
 };
 
 const updateNodeColorHandler = (state: DiagramState): DiagramState => {
-    const updatedNodes = state.model.nodeDataArray.map(node => {
+    const updatedNodes = state.nodeDataArray.map(node => {
         return {
             ...node,
             color: getRandomColor()
@@ -46,82 +51,62 @@ const updateNodeColorHandler = (state: DiagramState): DiagramState => {
 
     return {
         ...state,
-        model: {
-            ...state.model,
-            nodeDataArray: updatedNodes
-        }
+        nodeDataArray: updatedNodes
     };
 };
 
 const updateNodeTextHandler = (state: DiagramState, payload: UpdateNodeTextEvent): DiagramState => {
-    const nodeIndex = state.model.nodeDataArray.findIndex(node => node.key === payload.key);
+    const nodeIndex = state.nodeDataArray.findIndex(node => node.key === payload.key);
 
     return {
         ...state,
-        model: {
-            ...state.model,
-            nodeDataArray: [
-                ...state.model.nodeDataArray.slice(0, nodeIndex),
-                {
-                    ...state.model.nodeDataArray[nodeIndex],
-                    label: payload.text
-                },
-                ...state.model.nodeDataArray.slice(nodeIndex + 1)
-            ]
-        }
+        nodeDataArray: [
+            ...state.nodeDataArray.slice(0, nodeIndex),
+            {
+                ...state.nodeDataArray[nodeIndex],
+                label: payload.text
+            },
+            ...state.nodeDataArray.slice(nodeIndex + 1)
+        ]
     };
 };
 
 const addNodeHandler = (state: DiagramState, payload: string): DiagramState => {
-    const linksToAdd: LinkModel[] = state.selectedNodeKeys.map(parent => {
+    const linksToAdd: go.ObjectData[] = state.selectedNodeKeys.map(parent => {
         return { from: parent, to: payload };
     });
     return {
         ...state,
-        model: {
-            ...state.model,
-            nodeDataArray: [...state.model.nodeDataArray, { key: payload, label: payload, color: getRandomColor() }],
-            linkDataArray:
-                linksToAdd.length > 0
-                    ? [...state.model.linkDataArray].concat(linksToAdd)
-                    : [...state.model.linkDataArray]
-        }
+        nodeDataArray: [...state.nodeDataArray, { key: payload, label: payload, color: getRandomColor() }],
+        linkDataArray: linksToAdd.length > 0 ? [...state.linkDataArray].concat(linksToAdd) : [...state.linkDataArray]
     };
 };
 
-const removeNodeHandler = (state: DiagramState, payload: string): DiagramState => {
-    const nodeToRemoveIndex = state.model.nodeDataArray.findIndex(node => node.key === payload);
+const removeNodeHandler = (state: DiagramState, payload: go.Key): DiagramState => {
+    const nodeToRemoveIndex = state.nodeDataArray.findIndex(node => node.key === payload);
     if (nodeToRemoveIndex === -1) {
         return state;
     }
     return {
         ...state,
-        model: {
-            ...state.model,
-            nodeDataArray: [
-                ...state.model.nodeDataArray.slice(0, nodeToRemoveIndex),
-                ...state.model.nodeDataArray.slice(nodeToRemoveIndex + 1)
-            ]
-        }
+        nodeDataArray: [
+            ...state.nodeDataArray.slice(0, nodeToRemoveIndex),
+            ...state.nodeDataArray.slice(nodeToRemoveIndex + 1)
+        ]
     };
 };
 
-const removeLinkHandler = (state: DiagramState, payload: LinkModel): DiagramState => {
-    const linkToRemoveIndex = state.model.linkDataArray.findIndex(
-        link => link.from === payload.from && link.to === payload.to
-    );
+const removeLinkHandler = (state: DiagramState, payload: go.Key): DiagramState => {
+    const linkToRemoveIndex = state.linkDataArray.findIndex(link => link.Key === payload);
     if (linkToRemoveIndex === -1) {
         return state;
     }
     return {
         ...state,
-        model: {
-            ...state.model,
-            linkDataArray: [
-                ...state.model.linkDataArray.slice(0, linkToRemoveIndex),
-                ...state.model.linkDataArray.slice(linkToRemoveIndex + 1)
-            ]
-        }
+        linkDataArray: [
+            ...state.linkDataArray.slice(0, linkToRemoveIndex),
+            ...state.linkDataArray.slice(linkToRemoveIndex + 1)
+        ]
     };
 };
 
@@ -147,10 +132,8 @@ const nodeDeselectedHandler = (state: DiagramState, payload: string): DiagramSta
 };
 
 export const diagramReducer: Reducer<DiagramState> = reducerWithInitialState<DiagramState>({
-    model: {
-        nodeDataArray: [{ key: 'Root', color: 'lightblue', label: 'Root' }],
-        linkDataArray: []
-    },
+    nodeDataArray: [{ key: 'Root', color: 'lightblue', label: 'Root' }],
+    linkDataArray: [],
     selectedNodeKeys: []
 })
     .case(init, initHandler)
@@ -163,5 +146,4 @@ export const diagramReducer: Reducer<DiagramState> = reducerWithInitialState<Dia
     .case(nodeDeselected, nodeDeselectedHandler)
     .build();
 
-export const modelSelector = (state: DiagramState) => state.model;
 export const nodeSelectionSelector = (state: DiagramState) => state.selectedNodeKeys;

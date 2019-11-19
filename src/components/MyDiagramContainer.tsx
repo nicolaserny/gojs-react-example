@@ -1,6 +1,6 @@
 import React from 'react';
 import MyDiagram from './MyDiagram';
-import { DiagramState, modelSelector, NodeModel } from '../reducers/diagramReducer';
+import { DiagramState, NodeModel } from '../reducers/diagramReducer';
 import { connect } from 'react-redux';
 import { Dispatch } from 'redux';
 import {
@@ -11,27 +11,28 @@ import {
     UpdateNodeTextEvent,
     UpdateNodeText
 } from '../actions/diagram';
-import { DiagramModel, LinkModel, ModelChangeEvent, ModelChangeEventType } from 'react-gojs';
 import { Action } from 'typescript-fsa';
 
 interface MyDiagramContainerStateProps {
-    model: DiagramModel<NodeModel, LinkModel>;
+    nodeDataArray: Array<NodeModel>;
+    linkDataArray: Array<go.ObjectData>;
 }
 
 interface MyDiagramContainerDispatchProps {
     onNodeSelection: (key: string, isSelected: boolean) => void;
-    onModelChange: (event: ModelChangeEvent<NodeModel, LinkModel>) => void;
+    onModelChange: (event: go.IncrementalData) => void;
     onTextChange: (event: UpdateNodeTextEvent) => void;
 }
 
 const mapStateToProps = (state: DiagramState) => {
     return {
-        model: modelSelector(state)
+        nodeDataArray: state.nodeDataArray,
+        linkDataArray: state.linkDataArray
     };
 };
 
 const mapDispatchToProps = (
-    dispatch: Dispatch<Action<string> | Action<LinkModel> | Action<UpdateNodeTextEvent>>
+    dispatch: Dispatch<Action<string> | Action<go.Key> | Action<UpdateNodeTextEvent>>
 ): MyDiagramContainerDispatchProps => {
     return {
         onNodeSelection: (key: string, isSelected: boolean) => {
@@ -41,18 +42,16 @@ const mapDispatchToProps = (
                 dispatch(nodeDeselected(key));
             }
         },
-        onModelChange: (event: ModelChangeEvent<NodeModel, LinkModel>) => {
-            switch (event.eventType) {
-                case ModelChangeEventType.Remove:
-                    if (event.nodeData) {
-                        dispatch(removeNode(event.nodeData.key));
-                    }
-                    if (event.linkData) {
-                        dispatch(removeLink(event.linkData));
-                    }
-                    break;
-                default:
-                    break;
+        onModelChange: (event: go.IncrementalData) => {
+            const removedNodeKeys = event.removedNodeKeys;
+            if (removedNodeKeys) {
+                removedNodeKeys.forEach(key => {
+                    dispatch(removeNode(key));
+                });
+            }
+            const removeLinkKeys = event.removedLinkKeys;
+            if (removeLinkKeys) {
+                removeLinkKeys.forEach(key => dispatch(removeLink(key)));
             }
         },
         onTextChange: (event: UpdateNodeTextEvent) => {
@@ -62,14 +61,16 @@ const mapDispatchToProps = (
 };
 
 const MyDiagramContainer = ({
-    model,
+    nodeDataArray,
+    linkDataArray,
     onNodeSelection,
     onModelChange,
     onTextChange
 }: MyDiagramContainerStateProps & MyDiagramContainerDispatchProps) => {
     return (
         <MyDiagram
-            model={model}
+            nodeDataArray={nodeDataArray}
+            linkDataArray={linkDataArray}
             onNodeSelection={onNodeSelection}
             onModelChange={onModelChange}
             onTextChange={onTextChange}

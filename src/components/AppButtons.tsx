@@ -3,7 +3,6 @@ import { DiagramState, NodeModel } from '../reducers/diagramReducer';
 import { connect } from 'react-redux';
 import { init, updateNodeColor, addNode } from '../actions/diagram';
 import { Action } from 'typescript-fsa';
-import { DiagramModel, LinkModel } from 'react-gojs';
 import { Dispatch } from 'redux';
 
 export interface AppButtonsDispatchProps {
@@ -19,7 +18,9 @@ const mapStateToProps = (state: DiagramState) => {
 };
 
 const mapDispatchToProps = (
-    dispatch: Dispatch<Action<DiagramModel<NodeModel, LinkModel>> | Action<void> | Action<string>>
+    dispatch: Dispatch<
+        Action<{ nodeDataArray: Array<NodeModel>; linkDataArray: Array<go.ObjectData> }> | Action<void> | Action<string>
+    >
 ): AppButtonsDispatchProps => {
     let nodeId = 0;
     return {
@@ -34,10 +35,10 @@ const mapDispatchToProps = (
                         { key: 'Omega', label: 'Omega', color: 'grey' }
                     ],
                     linkDataArray: [
-                        { from: 'Alpha', to: 'Beta' },
-                        { from: 'Alpha', to: 'Gamma' },
-                        { from: 'Beta', to: 'Delta' },
-                        { from: 'Gamma', to: 'Omega' }
+                        { key: -1, from: 'Alpha', to: 'Beta' },
+                        { key: -2, from: 'Alpha', to: 'Gamma' },
+                        { key: -3, from: 'Beta', to: 'Delta' },
+                        { key: -4, from: 'Gamma', to: 'Omega' }
                     ]
                 })
             ),

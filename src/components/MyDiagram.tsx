@@ -2,40 +2,48 @@ import React from 'react';
 import go from 'gojs';
 import { Diagram, ToolManager } from 'gojs';
 import { NodeModel } from '../reducers/diagramReducer';
-import { DiagramModel, LinkModel, GojsDiagram, ModelChangeEvent } from 'react-gojs';
-import './MyDiagram.css';
 import { UpdateNodeTextEvent } from '../actions/diagram';
+import { ReactDiagram } from 'gojs-react';
+import './MyDiagram.css';
 
 interface MyDiagramProps {
-    model: DiagramModel<NodeModel, LinkModel>;
+    nodeDataArray: Array<NodeModel>;
+    linkDataArray: Array<go.ObjectData>;
     onNodeSelection: (key: string, isSelected: boolean) => void;
-    onModelChange: (event: ModelChangeEvent<NodeModel, LinkModel>) => void;
+    onModelChange: (event: go.IncrementalData) => void;
     onTextChange: (event: UpdateNodeTextEvent) => void;
 }
 
 class MyDiagram extends React.PureComponent<MyDiagramProps> {
+    private diagramRef: React.RefObject<ReactDiagram>;
+
     constructor(props: MyDiagramProps) {
         super(props);
-        this.createDiagram = this.createDiagram.bind(this);
+        this.diagramRef = React.createRef();
+        this.initDiagram = this.initDiagram.bind(this);
         this.onTextEdited = this.onTextEdited.bind(this);
     }
+
     render() {
         return (
-            <GojsDiagram
-                diagramId="myDiagramDiv"
-                model={this.props.model}
-                createDiagram={this.createDiagram}
-                className="myDiagram"
+            <ReactDiagram
+                ref={this.diagramRef}
+                divClassName="myDiagram"
+                initDiagram={this.initDiagram}
+                nodeDataArray={this.props.nodeDataArray}
+                linkDataArray={this.props.linkDataArray}
                 onModelChange={this.props.onModelChange}
+                skipsDiagramUpdate={false}
             />
         );
     }
-
-    private createDiagram(diagramId: string): Diagram {
+    private initDiagram(): Diagram {
         const $ = go.GraphObject.make;
 
-        const myDiagram: Diagram = $(go.Diagram, diagramId, {
+        const myDiagram: Diagram = $(go.Diagram, {
             initialContentAlignment: go.Spot.LeftCenter,
+            'undoManager.isEnabled': true,
+            'animationManager.isInitial': false,
             layout: $(go.TreeLayout, {
                 angle: 0,
                 arrangement: go.TreeLayout.ArrangementVertical,
@@ -48,7 +56,18 @@ class MyDiagram extends React.PureComponent<MyDiagramProps> {
             allowSelect: true,
             autoScale: Diagram.Uniform,
             contentAlignment: go.Spot.LeftCenter,
-            TextEdited: this.onTextEdited
+            TextEdited: this.onTextEdited,
+            model: $(go.GraphLinksModel, {
+                linkKeyProperty: 'key',
+                makeUniqueLinkKeyFunction: (m: go.GraphLinksModel, data) => {
+                    let k = data.key || -1;
+                    while (m.findLinkDataForKey(k)) {
+                        k--;
+                    }
+                    data.key = k;
+                    return k;
+                }
+            })
         });
 
         myDiagram.toolManager.panningTool.isEnabled = false;
@@ -62,6 +81,14 @@ class MyDiagram extends React.PureComponent<MyDiagramProps> {
             },
             $(go.Shape, 'RoundedRectangle', { strokeWidth: 0 }, new go.Binding('fill', 'color')),
             $(go.TextBlock, { margin: 8, editable: true }, new go.Binding('text', 'label'))
+        );
+
+        myDiagram.linkTemplate = $(
+            go.Link,
+            new go.Binding('relinkableFrom', 'canRelink').ofModel(),
+            new go.Binding('relinkableTo', 'canRelink').ofModel(),
+            $(go.Shape),
+            $(go.Shape, { toArrow: 'Standard' })
         );
 
         return myDiagram;
